@@ -1,37 +1,36 @@
-# Digital Image Enhancement & Restoration Assignment
+# Digital Image Enhancement — Section 2.1: Point Transformations ($s = T(r)$)
 
-This repository contains the complete implementation and report for the **Digital Image Enhancement Assignment** (Module 2: Classical Image Enhancement, Dr. Guindo).
-
-## 📌 Features & Implemented Techniques
-
-1. **Forward Degradation / Infection Models (`src/degradation.py`)**:
-   - Low-Contrast range squashing $[25, 75]$
-   - Low-Light underexposure ($0.15 \times \text{img}$)
-   - Impulse Salt-and-Pepper noise ($4\%$)
-   - Over-exposure shift ($+110$) with highlight clipping at $255$
-
-2. **Point Transformations ($s = T(r)$) (`src/point_transforms.py`)**:
-   - Image Negative ($s = 255 - r$)
-   - Linear Contrast & Brightness adjustment
-   - Min-Max & Robust Percentile Stretching ($1\%-99\%$)
-   - Logarithmic Transform ($s = c \log(1+r)$)
-   - Gamma Correction ($\gamma = 0.4$ shadows, $\gamma = 2.0$ highlights)
-   - Thresholding & 8 Binary Bit-Plane Slicing
-
-3. **Histogram Equalization & CLAHE (`src/histogram_ops.py`)**:
-   - Global Histogram Equalization (HE) using Cumulative Distribution Functions (CDF)
-   - Contrast-Limited Adaptive Histogram Equalization (CLAHE) operating on the $L$ (Lightness) channel in **$Lab$ color space** to preserve natural color fidelity.
-
-4. **Spatial Neighborhood Filtering (`src/spatial_ops.py`)**:
-   - Mean ($5\times5$), Gaussian ($5\times5$), and Median ($5\times5$) filters.
-   - Unsharp Masking & Laplacian Sharpening.
-
-5. **Quantitative Evaluation (`src/utils.py`)**:
-   - Mean Intensity, Standard Deviation ($\sigma$, Contrast measure), Entropy (in bits), and Peak Signal-to-Noise Ratio (PSNR in dB).
+This repository contains the complete implementation, interactive Jupyter Notebook, and quantitative evaluation for **Section 2.1: Point Transformations** from Module 2 (Classical Image Enhancement, Dr. Guindo).
 
 ---
 
-## 🛠️ Installation & Execution
+## 📌 What is a Point Transformation? (Slide 11)
+
+A **point operation** processes **one pixel at a time** using a mapping function:
+$$s = T(r)$$
+- $r$ is the input intensity value, $s$ is the output value.
+- **Pixel position and neighboring pixels do NOT enter the formula.**
+
+---
+
+## 🛠️ The 7 Core Point Transformations Implemented
+
+1. **Image Negative** ($s = 255 - r$): Inverts black and white. Used in mammograms/X-rays to reveal bright specks inside dark fields.
+2. **Linear Transform** ($s = \alpha \cdot r + \beta$): $\alpha$ adjusts contrast; $\beta$ adjusts brightness (with clipping $[0, 255]$).
+3. **Contrast Stretching**:
+   - Ordinary Min-Max Stretch ($s = 255 \frac{r - r_{\min}}{r_{\max} - r_{\min}}$)
+   - Robust Percentile Stretch ($1\%-99\%$) to prevent sensor hot pixels from disabling the stretch.
+4. **Log Transform** ($s = c \cdot \log(1 + r)$): Expands low-intensity dark tones while compressing highlights.
+5. **Gamma Correction (Power Law)** ($s = 255 (r \div 255)^\gamma$):
+   - $\gamma < 1$ (e.g. $\gamma=0.4$): Brightens shadow details.
+   - $\gamma > 1$ (e.g. $\gamma=2.0$): Darkens over-exposed highlights.
+6. **Thresholding** ($s = 255$ if $r > T$, else $0$): Binarizes an image into a mask.
+7. **Histogram Equalization** ($s = \text{round}((L - 1) \cdot \text{cdf}(r))$): Automatic contrast enhancement using the CDF.
+8. **Bit-Plane Slicing**: Decomposes 8-bit pixels into 8 binary planes (Bits 7 to 0).
+
+---
+
+## 🚀 Quick Start
 
 ```bash
 # Clone the repository
@@ -41,25 +40,29 @@ cd ImageEnhancement-Assignment
 # Install dependencies
 pip install opencv-python numpy matplotlib pillow
 
-# Run the complete assignment pipeline
+# Run python script
 python run_assignment.py
-```
 
-All generated output comparison figures and histograms are automatically saved to the `outputs/` folder.
+# Or launch Jupyter Notebook
+jupyter notebook Image_Enhancement_Assignment.ipynb
+```
 
 ---
 
-## 📊 Summary Results Table
+## 📊 Section 2.1 Point Operations Results Table
 
-| Method / Image State | Mean | Standard Dev ($\sigma$) | Entropy (bits) | PSNR (dB) |
+| Point Operation / Method | Mean | Standard Dev ($\sigma$, Contrast) | Entropy (bits) | PSNR (dB) |
 | :--- | :---: | :---: | :---: | :---: |
 | **Original Reference** | 112.16 | 62.01 | 7.76 | $\infty$ |
 | **Infected: Low Contrast** | 46.52 | 12.14 | 5.41 | 9.81 |
-| **Percentile Stretch ($1\%-99\%$)** | 118.30 | **70.39** | **7.76** | **27.74** |
-| **Global Equalization (HE)** | 130.45 | 73.22 | 5.41 | 21.00 |
-| **CLAHE ($Lab$ $L$-channel)** | 69.70 | 29.91 | 6.73 | 13.30 |
 | **Infected: Low Light** | 16.36 | 9.23 | 5.02 | 7.35 |
-| **Log Transform** | 122.02 | 30.77 | 6.53 | **17.05** |
-| **Gamma Correction ($\gamma=0.4$)** | 80.24 | 21.73 | 6.19 | 13.80 |
-| **Infected: S&P Noise** | 113.46 | 72.51 | 7.50 | 14.54 |
-| **Median Denoised ($5 \times 5$)** | 112.09 | **61.81** | **7.75** | **36.27** |
+| **Infected: Overexposed** | 216.03 | 42.33 | 5.25 | 7.48 |
+| **1. Image Negative ($s=255-r$)** | 142.84 | 62.01 | 7.76 | 6.00 |
+| **2. Linear Boost ($\alpha=1.8, \beta=-40$)** | 43.30 | 21.89 | 6.22 | 10.10 |
+| **3. Min-Max Contrast Stretch** | 109.20 | 62.04 | 7.65 | **38.22** |
+| **3. Percentile Stretch ($1\%-99\%$)** | 118.30 | **70.39** | **7.76** | **27.74** |
+| **4. Log Transform** | 122.02 | 30.77 | 6.53 | **17.05** |
+| **5. Gamma Correction ($\gamma=0.4$)** | 80.24 | 21.73 | 6.19 | 13.80 |
+| **5. Gamma Correction ($\gamma=2.0$)** | 189.96 | 67.91 | 5.63 | 9.88 |
+| **6. Thresholding ($T=128$)** | 103.77 | 121.62 | 1.46 | 11.08 |
+| **7. Global Histogram Equalization** | 130.45 | 73.22 | 5.41 | 21.00 |
