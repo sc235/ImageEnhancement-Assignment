@@ -108,10 +108,50 @@ Evaluated on `input_image.png` at $\sigma = 25$:
 - Classical Non-Local Means (NLM): $21.61\text{ dB}$ PSNR, $0.1794$ SSIM (patchy artifacts)
 - **DnCNN Restored:** **$36.67\text{ dB}$ PSNR (+15.65 dB gain!), $0.9290\text{ SSIM}$**
 
+#### 5. PyTorch Source Code Implementation
+```python
+import torch
+import torch.nn as nn
+
+class DnCNN(nn.Module):
+    """
+    DnCNN (Zhang et al., IEEE TIP 2017)
+    Residual Learning Denoiser: Predicts residual zero-mean noise v = R(y),
+    reconstructing clean image via identity subtraction: x_hat = y - R(y).
+    """
+    def __init__(self, in_channels=3, out_channels=3, num_features=64, num_layers=20):
+        super(DnCNN, self).__init__()
+        layers = [
+            nn.Conv2d(in_channels, num_features, kernel_size=3, padding=1, bias=True),
+            nn.ReLU(inplace=True)
+        ]
+        # 18 intermediate convolutional layers with Batch Normalization
+        for _ in range(num_layers - 2):
+            layers.extend([
+                nn.Conv2d(num_features, num_features, kernel_size=3, padding=1, bias=True),
+                nn.BatchNorm2d(num_features),
+                nn.ReLU(inplace=True)
+            ])
+        # Output layer predicts residual noise v
+        layers.append(nn.Conv2d(num_features, out_channels, kernel_size=3, padding=1, bias=True))
+        self.model = nn.Sequential(*layers)
+
+    def forward(self, x):
+        residual_noise = self.model(x)
+        # Residual Learning identity subtraction
+        clean_reconstruction = x - residual_noise
+        return torch.clamp(clean_reconstruction, 0.0, 1.0)
+```
+
 **Visual Evidence:**
-- Full-Frame Comparison: [`outputs/1_dncnn_full_comparison_sigma25.png`](outputs/1_dncnn_full_comparison_sigma25.png)
-- Zoomed Crop Detail (Person & Grass): [`outputs/2_dncnn_crop_detail_sigma25.png`](outputs/2_dncnn_crop_detail_sigma25.png)
-- Multi-Noise Progression ($\sigma \in \{15, 25, 50\}$): [`outputs/3_dncnn_multi_sigma_levels.png`](outputs/3_dncnn_multi_sigma_levels.png)
+![DnCNN Full Landscape Comparison](outputs/1_dncnn_full_comparison_sigma25.jpg)
+*Figure 1: DnCNN Full Landscape vs Classical Baselines at $\sigma=25$ ($36.67\text{ dB}$ PSNR).*
+
+![DnCNN Zoomed Crop Detail](outputs/2_dncnn_crop_detail_sigma25.jpg)
+*Figure 2: Zoomed patch comparing Gaussian blur, NLM, and DnCNN preservation of grass and silhouette.*
+
+![DnCNN Multi-Noise Progression](outputs/3_dncnn_multi_sigma_levels.jpg)
+*Figure 3: DnCNN performance across three noise regimes ($\sigma \in \{15, 25, 50\}$).*
 
 ---
 
@@ -146,10 +186,69 @@ While DnCNN established the deep learning benchmark, it suffered from two core f
   - Spatially Noisy Input: $20.01\text{ dB}$
   - FFDNet Spatially Adapted Output: **$33.27\text{ dB}$ PSNR (+13.26 dB gain!), $0.9078\text{ SSIM}$**
 
+#### 4. PyTorch Source Code Implementation
+```python
+import torch
+import torch.nn as nn
+
+class FFDNet(nn.Module):
+    """
+    FFDNet (Zhang et al., IEEE TIP 2018)
+    Fast & Flexible Denoising: Accepts a tunable 2D noise map sigma and
+    operates at quarter spatial resolution via PixelUnshuffle(2).
+    """
+    def __init__(self, in_channels=3, out_channels=3, num_features=96, num_layers=12):
+        super(FFDNet, self).__init__()
+        self.scale_factor = 2
+        # Input channels: 4 sub-images * 3 RGB channels + 1 noise level map channel = 13
+        head_in_channels = in_channels * (self.scale_factor ** 2) + 1
+        
+        layers = [
+            nn.Conv2d(head_in_channels, num_features, kernel_size=3, padding=1, bias=True),
+            nn.ReLU(inplace=True)
+        ]
+        for _ in range(num_layers - 2):
+            layers.extend([
+                nn.Conv2d(num_features, num_features, kernel_size=3, padding=1, bias=True),
+                nn.BatchNorm2d(num_features),
+                nn.ReLU(inplace=True)
+            ])
+        layers.append(nn.Conv2d(num_features, out_channels * (self.scale_factor ** 2), kernel_size=3, padding=1, bias=True))
+        
+        self.model = nn.Sequential(*layers)
+        self.pixel_unshuffle = nn.PixelUnshuffle(self.scale_factor)
+        self.pixel_shuffle = nn.PixelShuffle(self.scale_factor)
+
+    def forward(self, x, sigma):
+        h, w = x.size()[-2:]
+        # 1. Reversible sub-sampling to quarter spatial resolution (H/2, W/2)
+        x_down = self.pixel_unshuffle(x)
+        hp, wp = x_down.size()[-2:]
+        
+        # 2. Formulate 2D noise level map
+        if not torch.is_tensor(sigma):
+            sigma_map = torch.full((x.size(0), 1, hp, wp), float(sigma), device=x.device, dtype=x.dtype)
+        else:
+            sigma_map = nn.functional.interpolate(sigma, size=(hp, wp), mode='bilinear', align_corners=False)
+            
+        # 3. Concatenate downsampled features with noise map -> (13 channels)
+        inp = torch.cat([x_down, sigma_map], dim=1)
+        feat = self.model(inp)
+        
+        # 4. Sub-pixel convolution upsampling back to (3, H, W)
+        out = self.pixel_shuffle(feat)
+        return torch.clamp(out[:, :, :h, :w], 0.0, 1.0)
+```
+
 **Visual Evidence:**
-- Head-to-Head DnCNN vs FFDNet: [`outputs/4_ffdnet_vs_dncnn_sigma25.png`](outputs/4_ffdnet_vs_dncnn_sigma25.png)
-- Controllability Progression: [`outputs/5_ffdnet_controllability_sigma.png`](outputs/5_ffdnet_controllability_sigma.png)
-- Spatially Variant Gradient Denoising: [`outputs/6_ffdnet_spatially_variant.png`](outputs/6_ffdnet_spatially_variant.png)
+![DnCNN vs FFDNet Comparison](outputs/4_ffdnet_vs_dncnn_sigma25.jpg)
+*Figure 4: Head-to-Head DnCNN vs FFDNet: Identical reconstruction ($36.36\text{ dB}$ PSNR) at $3.8\times$ faster speed.*
+
+![FFDNet Controllability](outputs/5_ffdnet_controllability_sigma.jpg)
+*Figure 5: Controllability over-smoothing vs under-smoothing by tuning input $\sigma_{in}$.*
+
+![FFDNet Spatially Variant](outputs/6_ffdnet_spatially_variant.jpg)
+*Figure 6: Continuous vertical gradient noise restoration ($+13.26\text{ dB}$ gain).*
 
 ---
 
@@ -183,9 +282,41 @@ $$\mathbb{E}[y_2 \mid y_1] = \mathbb{E}[x + v_2 \mid y_1] = \mathbb{E}[x \mid y_
   - **Noise2Noise (Unsupervised Target $y_2$):** **$31.02\text{ dB}$ PSNR, $0.8839$ SSIM**
   - **Difference:** Only $2.04\text{ dB}$ despite **never seeing a single clean pixel during training**!
 
+#### 4. PyTorch Source Code Implementation
+```python
+import torch
+import torch.nn as nn
+
+def train_noise2noise_epoch(model, optimizer, criterion, noisy_pairs_loader, device):
+    """
+    Noise2Noise Training Loop (Lehtinen et al., ICML 2018)
+    Crucial Insight: Target y2 is heavily corrupted by independent noise v2.
+    Clean ground truth x is NEVER observed!
+    Because E[v2 | x] = 0, the expected gradient points toward clean image x.
+    """
+    model.train()
+    total_loss = 0.0
+    for y1_batch, y2_batch in noisy_pairs_loader:
+        y1_batch, y2_batch = y1_batch.to(device), y2_batch.to(device)
+        
+        optimizer.zero_grad()
+        prediction = model(y1_batch) # Forward pass on observation 1
+        
+        # Loss computed against noisy target observation 2
+        loss = criterion(prediction, y2_batch)
+        loss.backward()
+        optimizer.step()
+        
+        total_loss += loss.item()
+    return total_loss / len(noisy_pairs_loader)
+```
+
 **Visual Evidence:**
-- Noise2Noise Overview: [`outputs/7_noise2noise_comparison.png`](outputs/7_noise2noise_comparison.png)
-- Noise2Noise Detailed Crop: [`outputs/8_noise2noise_crop_detail.png`](outputs/8_noise2noise_crop_detail.png)
+![Noise2Noise Overview](outputs/7_noise2noise_comparison.jpg)
+*Figure 7: Noise2Noise Restoration: Target $y_2$ is heavily noisy, yet output converges to clean target.*
+
+![Noise2Noise Crop Detail](outputs/8_noise2noise_crop_detail.jpg)
+*Figure 8: Zoomed comparison demonstrating Noise2Noise ($31.02\text{ dB}$) matches supervised Noise2Clean within $2.04\text{ dB}$.*
 
 ---
 
@@ -217,9 +348,42 @@ $$\hat{x} = \frac{1}{N} \sum_{n=1}^N f(y; \mathbf{z}_n)$$
   - Noisy Input: $21.02\text{ dB}$ PSNR, $0.1403$ SSIM
   - **Noise2Void / Self2Self Output:** **$28.92\text{ dB}$ PSNR (+7.90 dB gain!), $0.8723$ SSIM**
 
+#### 6. PyTorch Source Code Implementation
+```python
+import torch
+import torch.nn as nn
+
+def create_n2v_blind_spots(patch, mask_ratio=0.03):
+    """
+    Noise2Void Blind-Spot Masking (Krull et al., CVPR 2019)
+    Replaces a small percentage of pixels with randomly selected spatial neighbors.
+    Because noise is pixel-wise independent, surrounding pixels contain ZERO noise
+    information, preventing the CNN from learning the trivial identity mapping f(y)=y.
+    """
+    B, C, H, W = patch.shape
+    blind_patch = patch.clone()
+    mask = torch.rand((B, 1, H, W), device=patch.device) < mask_ratio
+    offsets = [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (1, 1)]
+    for dy, dx in offsets:
+        neighbor = torch.roll(patch, shifts=(dy, dx), dims=(-2, -1))
+        replace_cond = mask & (torch.rand((B, 1, H, W), device=patch.device) < (1.0 / len(offsets)))
+        blind_patch = torch.where(replace_cond.expand_as(patch), neighbor, blind_patch)
+    return blind_patch, mask
+
+def n2v_loss(model, original_patch, mask_ratio=0.03):
+    blind_patch, mask = create_n2v_blind_spots(original_patch, mask_ratio)
+    prediction = model(blind_patch)
+    # Compute loss ONLY at the blind-spot coordinates
+    mask_exp = mask.expand_as(original_patch)
+    return nn.functional.mse_loss(prediction[mask_exp], original_patch[mask_exp])
+```
+
 **Visual Evidence:**
-- Single-Image Denoising: [`outputs/9_noise2void_self2self.png`](outputs/9_noise2void_self2self.png)
-- Blind-Spot Crop Detail: [`outputs/10_noise2void_crop.png`](outputs/10_noise2void_crop.png)
+![Noise2Void Self2Self Overview](outputs/9_noise2void_self2self.jpg)
+*Figure 9: Noise2Void & Self2Self Single-Image Restoration: $+7.90\text{ dB}$ gain with zero training dataset.*
+
+![Noise2Void Zoomed Detail](outputs/10_noise2void_crop.jpg)
+*Figure 10: Zoomed detail showing noise suppression without ground truth images.*
 
 ---
 
@@ -250,9 +414,59 @@ Tested under severe noise ($\sigma = 35$):
 - Noisy Input: $18.56\text{ dB}$ PSNR, $0.0859$ SSIM
 - **Restormer Transposed Attention:** **$30.33\text{ dB}$ PSNR (+11.77 dB boost!), $0.7511$ SSIM**
 
+#### 5. PyTorch Source Code Implementation
+```python
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+class SimpleGate(nn.Module):
+    """NAFNet SimpleGate: Replaces ReLU/GELU with channel chunking and element-wise product."""
+    def forward(self, x):
+        x1, x2 = x.chunk(2, dim=1)
+        return x1 * x2
+
+class MDTA(nn.Module):
+    """
+    Restormer Multi-Dconv Head Transposed Attention (Zamir et al., CVPR 2022)
+    Computes cross-covariance attention across CHANNELS rather than spatial tokens:
+    Complexity: O(HW * C^2) - Linear with respect to image resolution!
+    """
+    def __init__(self, channels=48, num_heads=4):
+        super().__init__()
+        self.num_heads = num_heads
+        self.temperature = nn.Parameter(torch.ones(num_heads, 1, 1))
+        self.qkv = nn.Conv2d(channels, channels * 3, kernel_size=1, bias=False)
+        self.qkv_dwconv = nn.Conv2d(
+            channels * 3, channels * 3, kernel_size=3, padding=1, groups=channels * 3, bias=False
+        )
+        self.project_out = nn.Conv2d(channels, channels, kernel_size=1, bias=False)
+
+    def forward(self, x):
+        b, c, h, w = x.shape
+        # Compute Q, K, V with depthwise spatial context
+        qkv = self.qkv_dwconv(self.qkv(x))
+        q, k, v = qkv.chunk(3, dim=1)
+        
+        # Reshape to (B, Heads, C_head, HW)
+        q = F.normalize(q.reshape(b, self.num_heads, -1, h * w), dim=-1)
+        k = F.normalize(k.reshape(b, self.num_heads, -1, h * w), dim=-1)
+        v = v.reshape(b, self.num_heads, -1, h * w)
+        
+        # Channel-wise attention map: (C_head x C_head)
+        attn = (q @ k.transpose(-2, -1)) * self.temperature
+        attn = attn.softmax(dim=-1)
+        
+        out = (attn @ v).reshape(b, c, h, w)
+        return self.project_out(out)
+```
+
 **Visual Evidence:**
-- Restormer Attention Output: [`outputs/11_restormer_nafnet_attention.png`](outputs/11_restormer_nafnet_attention.png)
-- Attention Crop Detail: [`outputs/12_restormer_crop_detail.png`](outputs/12_restormer_crop_detail.png)
+![Restormer Attention Output](outputs/11_restormer_nafnet_attention.jpg)
+*Figure 11: Restormer Transposed Attention Output under heavy noise ($\sigma=35$) with linear memory footprint.*
+
+![Restormer Zoomed Crop Detail](outputs/12_restormer_crop_detail.jpg)
+*Figure 12: Zoomed detail highlighting sharp recovery of fine vegetation and high-frequency structural lines.*
 
 ---
 
@@ -277,9 +491,54 @@ Rather than averaging uncertainty, each reverse sampling step walks down the gra
 - A conditional diffusion score model was trained and executed over a 100-step reverse Langevin trajectory starting from pure Gaussian noise.
 - Visual inspection confirms that while regression models produce a flat, waxy field, the diffusion denoiser synthesizes distinct, photorealistic grass textures.
 
+#### 4. PyTorch Source Code Implementation
+```python
+import torch
+
+@torch.no_grad()
+def ddpm_reverse_sampling_trajectory(model, noisy_conditioning, num_timesteps=100, betas=None):
+    """
+    DDPM Reverse Langevin Trajectory (Ho et al., NeurIPS 2020)
+    Starts from pure Gaussian noise at timestep T and iteratively denoises towards t=0.
+    Overcomes blurry L2 conditional mean by sampling sharp, plausible textures from p(x | y).
+    """
+    device = noisy_conditioning.device
+    xt = torch.randn_like(noisy_conditioning) # Pure noise prior at t=T
+    
+    if betas is None:
+        betas = torch.linspace(1e-4, 0.02, num_timesteps, device=device)
+    alphas = 1.0 - betas
+    alphas_bar = torch.cumprod(alphas, dim=0)
+    
+    for t_step in reversed(range(num_timesteps)):
+        t_tensor = torch.tensor([t_step], device=device).float()
+        # Predict noise component eps_theta(xt, t, y)
+        pred_noise = model(xt, t_tensor, noisy_conditioning)
+        
+        beta_t = betas[t_step]
+        alpha_t = alphas[t_step]
+        alpha_bar_t = alphas_bar[t_step]
+        
+        # Langevin reverse update step
+        coef_eps = beta_t / torch.sqrt(1.0 - alpha_bar_t)
+        mean = (1.0 / torch.sqrt(alpha_t)) * (xt - coef_eps * pred_noise)
+        
+        if t_step > 0:
+            sigma_t = torch.sqrt(beta_t)
+            z = torch.randn_like(xt)
+            xt = mean + sigma_t * z
+        else:
+            xt = mean
+            
+    return torch.clamp(xt, 0.0, 1.0)
+```
+
 **Visual Evidence:**
-- 5-Step Reverse Diffusion Trajectory ($t=100 \to 0$): [`outputs/13_diffusion_reverse_trajectory.png`](outputs/13_diffusion_reverse_trajectory.png)
-- Regression ($L_2$ Average) vs. Diffusion (Plausible Sample): [`outputs/14_diffusion_vs_regression.png`](outputs/14_diffusion_vs_regression.png)
+![Reverse Diffusion Trajectory](outputs/13_diffusion_reverse_trajectory.jpg)
+*Figure 13: 5-Step Reverse Diffusion Trajectory ($t=100 \to 0$): Resolving pure noise into crisp, structured grass textures.*
+
+![Diffusion vs Regression Comparison](outputs/14_diffusion_vs_regression.jpg)
+*Figure 14: Regression ($L_2$ Average, blurry and waxy) vs Diffusion (Plausible Sample, sharp and textured).*
 
 ---
 
