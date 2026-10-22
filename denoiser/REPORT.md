@@ -1,6 +1,7 @@
 # Comprehensive Academic Report: Modern Learned Denoisers and Neural Image Restoration
 
-**Course:** Digital Image Processing & Computer Vision (CS Senior / Module 4)  
+**Student / Author:** Mouhamadou Ahmed Ndiaye  
+**Course:** CS-4814 — Digital Image Processing & Computer Vision (CS Senior, Module 4)  
 **Topic:** Modern Learned Denoisers (Neural Networks) — Paradigms, Mathematical Formulations, Architectures, and Empirical Benchmarks  
 **Evaluation Target:** [`input_image.png`](input_image.png) ($736 \times 981$ pixels, 24-bit RGB Landscape Photograph)  
 **Date:** October 2026  

@@ -2,12 +2,12 @@ import os
 import docx
 from docx.shared import Inches, Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.enum.table import WD_TABLE_ALIGNMENT, WD_ALIGN_VERTICAL
+from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
-output_docx_path = os.path.join(current_dir, "Learned_Denoisers_Report.docx")
+output_docx_path = os.path.join(current_dir, "Learned_Denoisers_Assignment_Report.docx")
 outputs_dir = os.path.join(current_dir, "outputs")
 
 doc = docx.Document()
@@ -66,20 +66,13 @@ def add_header(title, level=1):
         h.paragraph_format.space_after = Pt(2)
     return h
 
-def add_callout(text, prefix="KEY TAKEAWAY: "):
-    p = doc.add_paragraph()
-    p.paragraph_format.left_indent = Inches(0.4)
-    p.paragraph_format.right_indent = Inches(0.4)
-    p.paragraph_format.space_before = Pt(6)
-    p.paragraph_format.space_after = Pt(6)
-    run_pre = p.add_run(prefix)
-    run_pre.bold = True
-    run_pre.font.color.rgb = COLOR_PRIMARY
-    run_text = p.add_run(text)
-    run_text.italic = True
-
 def add_image_with_caption(filename, caption_text, width=Inches(6.0)):
-    filepath = os.path.join(outputs_dir, filename)
+    # Prefer optimized .jpg if available for compact file size
+    base = os.path.splitext(filename)[0]
+    jpg_path = os.path.join(outputs_dir, f"{base}.jpg")
+    png_path = os.path.join(outputs_dir, filename)
+    filepath = jpg_path if os.path.exists(jpg_path) else png_path
+    
     if os.path.exists(filepath):
         p_img = doc.add_paragraph()
         p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -109,9 +102,12 @@ r_title.font.color.rgb = COLOR_PRIMARY
 
 p_sub = doc.add_paragraph()
 p_sub.paragraph_format.space_after = Pt(18)
-r_sub = p_sub.add_run("Neural Network Architectures, Mathematical Principles, and Benchmark Evaluations\n"
-                      "Course: Digital Image Processing & Computer Vision (CS Senior, Module 4)\n"
-                      "Evaluated on High-Resolution Photograph: input_image.png (736 x 981 pixels)")
+r_sub = p_sub.add_run(
+    "Student / Author: Mouhamadou Ahmed Ndiaye\n"
+    "Course: CS-4814 — Digital Image Processing & Computer Vision (CS Senior)\n"
+    "Assignment: Module 4 — Modern Learned Denoisers (Neural Networks)\n"
+    "Evaluation Target: input_image.png (736 x 981 pixels, 24-bit RGB Landscape Photograph)"
+)
 r_sub.font.size = Pt(11)
 r_sub.font.color.rgb = COLOR_MUTED
 
@@ -230,8 +226,8 @@ doc.add_paragraph(
     "On our test image, DnCNN elevated PSNR from 21.02 dB to 36.67 dB (+15.65 dB gain) and SSIM from 0.1403 to 0.9290, "
     "flawlessly restoring the person's silhouette and illuminated grass blades."
 )
-add_image_with_caption("1_dncnn_full_comparison_sigma25.png", "DnCNN Full-View Comparison vs Classical Baselines at sigma=25")
-add_image_with_caption("2_dncnn_crop_detail_sigma25.png", "Zoomed Patch: Sharp edge preservation of the person and grass highlights")
+add_image_with_caption("1_dncnn_full_comparison_sigma25.jpg", "DnCNN Full-View Comparison vs Classical Baselines at sigma=25")
+add_image_with_caption("2_dncnn_crop_detail_sigma25.jpg", "Zoomed Patch: Sharp edge preservation of the person and grass highlights")
 
 # ----------------- Technique 2 -----------------
 add_header("Technique 2: FFDNet (Fast & Flexible Denoising, 2018)", level=2)
@@ -251,9 +247,9 @@ doc.add_paragraph(
     "sigma_in=25 optimal 36.36 dB, sigma_in=50 painterly smoothing).\n"
     "- Spatially-Variant Denoising: A vertical gradient noise field (sigma=10 to 45) was restored from 20.01 dB to 33.27 dB."
 )
-add_image_with_caption("4_ffdnet_vs_dncnn_sigma25.png", "Head-to-head DnCNN vs FFDNet Comparison: Matching quality at 3.8x higher speed")
-add_image_with_caption("5_ffdnet_controllability_sigma.png", "Noise Level Controllability: Under-smoothing vs Optimal vs Over-smoothing")
-add_image_with_caption("6_ffdnet_spatially_variant.png", "Spatially Variant Denoising: Continuous 2D noise heatmap restoration")
+add_image_with_caption("4_ffdnet_vs_dncnn_sigma25.jpg", "Head-to-head DnCNN vs FFDNet Comparison: Matching quality at 3.8x higher speed")
+add_image_with_caption("5_ffdnet_controllability_sigma.jpg", "Noise Level Controllability: Under-smoothing vs Optimal vs Over-smoothing")
+add_image_with_caption("6_ffdnet_spatially_variant.jpg", "Spatially Variant Denoising: Continuous 2D noise heatmap restoration")
 
 # ----------------- Technique 3 -----------------
 add_header("Technique 3: Noise2Noise (Learning Without Clean Data, 2018)", level=2)
@@ -269,7 +265,7 @@ doc.add_paragraph(
     "Empirical Demonstration: A U-Net trained exclusively on corrupted noisy pairs y2 achieved 31.02 dB PSNR on our test image, "
     "reaching within 2.04 dB of a fully supervised model trained with clean targets."
 )
-add_image_with_caption("7_noise2noise_comparison.png", "Noise2Noise: Target image y2 is heavily corrupted, yet network outputs clean reconstruction")
+add_image_with_caption("7_noise2noise_comparison.jpg", "Noise2Noise: Target image y2 is heavily corrupted, yet network outputs clean reconstruction")
 
 # ----------------- Technique 4 -----------------
 add_header("Technique 4: Noise2Void & Self2Self (Zero Dataset Denoising, 2019-20)", level=2)
@@ -284,7 +280,7 @@ doc.add_paragraph(
     "Empirical Demonstration: Self-training a blind-spot network directly on the single noisy test image for 70 iterations "
     "improved PSNR from 21.02 dB to 28.92 dB (+7.90 dB gain) with ZERO external training dataset."
 )
-add_image_with_caption("9_noise2void_self2self.png", "Noise2Void / Self2Self: Single-image self-supervised restoration with zero dataset")
+add_image_with_caption("9_noise2void_self2self.jpg", "Noise2Void / Self2Self: Single-image self-supervised restoration with zero dataset")
 
 # ----------------- Technique 5 -----------------
 add_header("Technique 5: Restormer / NAFNet (Vision Transformers, 2021-22)", level=2)
@@ -297,7 +293,7 @@ doc.add_paragraph(
     "NAFNet (Chen et al., ECCV 2022) further simplified restoration by replacing nonlinear activations (GELU/ReLU) "
     "with SimpleGate element-wise multiplication."
 )
-add_image_with_caption("11_restormer_nafnet_attention.png", "Restormer Transposed Attention Output under severe noise (sigma=35)")
+add_image_with_caption("11_restormer_nafnet_attention.jpg", "Restormer Transposed Attention Output under severe noise (sigma=35)")
 
 # ----------------- Technique 6 -----------------
 add_header("Technique 6: Diffusion Denoisers (Generative Sampling, 2021+)", level=2)
@@ -310,8 +306,8 @@ doc.add_paragraph(
     "choosing ONE sharp, plausible, consistent reality. While PSNR may not penalize slight pixel-shifts, perceptual realism "
     "and texture fidelity are unmatched."
 )
-add_image_with_caption("13_diffusion_reverse_trajectory.png", "5-Step Reverse Diffusion Langevin Trajectory: From pure noise to restored image")
-add_image_with_caption("14_diffusion_vs_regression.png", "Regression (Blurry L2 Average) vs Diffusion (Sharp Plausible Texture Sample)")
+add_image_with_caption("13_diffusion_reverse_trajectory.jpg", "5-Step Reverse Diffusion Langevin Trajectory: From pure noise to restored image")
+add_image_with_caption("14_diffusion_vs_regression.jpg", "Regression (Blurry L2 Average) vs Diffusion (Sharp Plausible Texture Sample)")
 
 # =========================================================================
 # SECTION 4: REAL-WORLD DECISION MATRIX
@@ -369,3 +365,4 @@ for ref in refs:
 
 doc.save(output_docx_path)
 print(f"[+] Successfully generated Word Document at: {output_docx_path}")
+print(f"[+] DOCX Size: {os.path.getsize(output_docx_path) / (1024*1024):.2f} MB")

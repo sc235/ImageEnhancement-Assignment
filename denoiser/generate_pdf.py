@@ -10,8 +10,14 @@ from reportlab.platypus import (
 from reportlab.pdfgen import canvas
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
-output_pdf_path = os.path.join(current_dir, "Learned_Denoisers_Report.pdf")
+output_pdf_path = os.path.join(current_dir, "Learned_Denoisers_Assignment_Report.pdf")
 outputs_dir = os.path.join(current_dir, "outputs")
+
+def get_image_path(filename):
+    base = os.path.splitext(filename)[0]
+    jpg_path = os.path.join(outputs_dir, f"{base}.jpg")
+    png_path = os.path.join(outputs_dir, filename)
+    return jpg_path if os.path.exists(jpg_path) else png_path
 
 class NumberedCanvas(canvas.Canvas):
     def __init__(self, *args, **kwargs):
@@ -37,7 +43,7 @@ class NumberedCanvas(canvas.Canvas):
         
         # Header (Pages > 1)
         if self._pageNumber > 1:
-            self.drawString(54, letter[1] - 36, "Digital Image Processing — Modern Learned Denoisers Report")
+            self.drawString(54, letter[1] - 36, "CS-4814 — Modern Learned Denoisers Report | Mouhamadou Ahmed Ndiaye")
             self.setStrokeColor(colors.HexColor("#E2E8F0"))
             self.setLineWidth(0.5)
             self.line(54, letter[1] - 42, letter[0] - 54, letter[1] - 42)
@@ -86,7 +92,7 @@ def build_pdf():
         parent=styles['Normal'],
         fontName='Helvetica',
         fontSize=10.5,
-        leading=14,
+        leading=14.5,
         textColor=MUTED,
         spaceAfter=14
     )
@@ -168,9 +174,10 @@ def build_pdf():
     # Title & Metadata
     story.append(Paragraph("ACADEMIC EVALUATION REPORT:<br/>MODERN LEARNED DENOISERS", style_title))
     story.append(Paragraph(
-        "<b>Course:</b> Digital Image Processing & Computer Vision (CS Senior, Module 4)<br/>"
-        "<b>Topic:</b> Neural Network Architectures, Mathematical Principles, and Benchmark Evaluations<br/>"
-        "<b>Target Image:</b> <code>input_image.png</code> (736 &times; 981 pixels, 24-bit RGB Landscape Photograph)",
+        "<b>Student / Author:</b> Mouhamadou Ahmed Ndiaye<br/>"
+        "<b>Course:</b> CS-4814 — Digital Image Processing & Computer Vision (CS Senior)<br/>"
+        "<b>Assignment:</b> Module 4 — Modern Learned Denoisers (Neural Networks)<br/>"
+        "<b>Evaluation Target:</b> <code>input_image.png</code> (736 &times; 981 pixels, 24-bit RGB Landscape Photograph)",
         style_sub
     ))
     story.append(HRFlowable(width="100%", thickness=1.5, color=PRIMARY, spaceAfter=12))
@@ -271,7 +278,7 @@ def build_pdf():
         "restoring the person's silhouette and grass blade highlights.",
         style_body
     ))
-    img1_path = os.path.join(outputs_dir, "1_dncnn_full_comparison_sigma25.png")
+    img1_path = get_image_path("1_dncnn_full_comparison_sigma25.png")
     if os.path.exists(img1_path):
         story.append(Image(img1_path, width=6.8*inch, height=2.04*inch))
         story.append(Paragraph("Figure 1: DnCNN Full-View Comparison vs Classical Baselines at sigma=25", style_caption))
@@ -288,7 +295,7 @@ def build_pdf():
         "Furthermore, tuning input sigma_in provided direct user control over smoothing, while successfully restoring a continuous 2D vertical gradient noise field.",
         style_body
     ))
-    img4_path = os.path.join(outputs_dir, "4_ffdnet_vs_dncnn_sigma25.png")
+    img4_path = get_image_path("4_ffdnet_vs_dncnn_sigma25.png")
     if os.path.exists(img4_path):
         story.append(Image(img4_path, width=6.8*inch, height=2.04*inch))
         story.append(Paragraph("Figure 2: Head-to-Head DnCNN vs FFDNet Comparison: Matching quality at 3.8x higher speed", style_caption))
@@ -306,7 +313,7 @@ def build_pdf():
         "On our test image, Noise2Noise reached <b>31.02 dB PSNR</b>, within 2.0 dB of a supervised model trained with clean targets.",
         style_body
     ))
-    img7_path = os.path.join(outputs_dir, "7_noise2noise_comparison.png")
+    img7_path = get_image_path("7_noise2noise_comparison.png")
     if os.path.exists(img7_path):
         story.append(Image(img7_path, width=6.8*inch, height=1.7*inch))
         story.append(Paragraph("Figure 3: Noise2Noise: Target image y2 is heavily corrupted, yet network outputs clean reconstruction", style_caption))
@@ -321,7 +328,7 @@ def build_pdf():
         "Self-training on our single noisy test image for 70 steps yielded <b>28.92 dB PSNR (+7.90 dB gain)</b> with <b>ZERO external dataset</b>.",
         style_body
     ))
-    img9_path = os.path.join(outputs_dir, "9_noise2void_self2self.png")
+    img9_path = get_image_path("9_noise2void_self2self.png")
     if os.path.exists(img9_path):
         story.append(Image(img9_path, width=6.8*inch, height=2.26*inch))
         story.append(Paragraph("Figure 4: Noise2Void / Self2Self: Single-image self-supervised restoration with zero dataset", style_caption))
@@ -336,7 +343,7 @@ def build_pdf():
         "Under severe noise (sigma=35), Restormer restored the landscape to <b>30.33 dB PSNR (+11.77 dB gain)</b>.",
         style_body
     ))
-    img11_path = os.path.join(outputs_dir, "11_restormer_nafnet_attention.png")
+    img11_path = get_image_path("11_restormer_nafnet_attention.png")
     if os.path.exists(img11_path):
         story.append(Image(img11_path, width=6.8*inch, height=2.26*inch))
         story.append(Paragraph("Figure 5: Restormer Transposed Attention Output under severe noise (sigma=35)", style_caption))
@@ -351,12 +358,12 @@ def build_pdf():
         "<b>ONE sharp, plausible, consistent reality</b> and synthesizing photorealistic grass textures.",
         style_body
     ))
-    img13_path = os.path.join(outputs_dir, "13_diffusion_reverse_trajectory.png")
+    img13_path = get_image_path("13_diffusion_reverse_trajectory.png")
     if os.path.exists(img13_path):
         story.append(Image(img13_path, width=6.8*inch, height=1.55*inch))
         story.append(Paragraph("Figure 6: 5-Step Reverse Diffusion Langevin Trajectory: Progressively resolving noise into crisp textures", style_caption))
 
-    img14_path = os.path.join(outputs_dir, "14_diffusion_vs_regression.png")
+    img14_path = get_image_path("14_diffusion_vs_regression.png")
     if os.path.exists(img14_path):
         story.append(Image(img14_path, width=6.8*inch, height=1.7*inch))
         story.append(Paragraph("Figure 7: Regression (Blurry L2 Average) vs Diffusion (Sharp Plausible Texture Sample)", style_caption))
@@ -400,6 +407,7 @@ def build_pdf():
 
     doc.build(story, canvasmaker=NumberedCanvas)
     print(f"[+] Successfully generated publication-grade PDF report at: {output_pdf_path}")
+    print(f"[+] PDF Size: {os.path.getsize(output_pdf_path) / (1024*1024):.2f} MB")
 
 if __name__ == "__main__":
     build_pdf()
