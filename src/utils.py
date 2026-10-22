@@ -47,9 +47,9 @@ def calculate_psnr(original, processed):
     psnr = 20 * np.log10(max_pixel / np.sqrt(mse))
     return round(psnr, 2)
 
-def save_comparison_figure(image_dict, title, filename):
+def save_comparison_figure(image_dict, title, filename, show=True):
     """
-    Saves a grid figure displaying images and their corresponding intensity histograms.
+    Saves and displays a grid figure displaying images and their corresponding intensity histograms.
     image_dict format: {"Label": image_bgr_or_gray, ...}
     """
     n = len(image_dict)
@@ -84,5 +84,8 @@ def save_comparison_figure(image_dict, title, filename):
     output_path = os.path.join("outputs", filename)
     os.makedirs("outputs", exist_ok=True)
     plt.savefig(output_path, dpi=150)
-    plt.close()
+    if show:
+        plt.show()
+    else:
+        plt.close()
     return output_path

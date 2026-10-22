@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Modern Learned Denoisers Academic Report</title>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.65;
+            color: #24292e;
+            max-width: 1050px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background-color: #f8f9fa;
+        }
+        .container {
+            background: #ffffff;
+            padding: 45px 55px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        }
+        h1 { border-bottom: 2px solid #eaecef; padding-bottom: 12px; color: #1a1f2c; margin-top: 0; }
+        h2 { border-bottom: 1px solid #eaecef; padding-bottom: 8px; margin-top: 40px; color: #2b3137; }
+        h3 { margin-top: 26px; color: #3f444e; }
+        h4 { margin-top: 18px; color: #495057; }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 22px 0;
+            font-size: 13.5px;
+        }
+        th, td {
+            border: 1px solid #dfe2e5;
+            padding: 10px 14px;
+            text-align: left;
+        }
+        th {
+            background-color: #f1f4f8;
+            font-weight: 600;
+            color: #1f2328;
+        }
+        tr:nth-child(2n) {
+            background-color: #fafbfc;
+        }
+        img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 6px;
+            border: 1px solid #e1e4e8;
+            margin: 15px 0 5px 0;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        }
+        .img-caption {
+            font-size: 12px;
+            color: #57606a;
+            margin-bottom: 18px;
+            display: block;
+        }
+        code {
+            background-color: #f6f8fa;
+            padding: 2px 5px;
+            border-radius: 4px;
+            font-family: SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+            font-size: 85%;
+        }
+        pre {
+            background-color: #f6f8fa;
+            padding: 16px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 13px;
+            border: 1px solid #e1e4e8;
+        }
+        blockquote {
+            border-left: 4px solid #0969da;
+            margin: 15px 0;
+            padding: 10px 20px;
+            background-color: #f0f7ff;
+            color: #1f2328;
+            border-radius: 0 4px 4px 0;
+        }
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            background-color: #2da44e;
+            color: white;
+        }
+        @media print {
+            body { background-color: #fff; padding: 0; }
+            .container { box-shadow: none; padding: 0; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+<h1>Comprehensive Academic Report: Modern Learned Denoisers and Neural Image Restoration</h1>
+<p><strong>Course:</strong> Digital Image Processing & Computer Vision (CS Senior / Module 4)  </p>
+<p><strong>Topic:</strong> Modern Learned Denoisers (Neural Networks) — Paradigms, Mathematical Formulations, Architectures, and Empirical Benchmarks  </p>
+<p><strong>Evaluation Target:</strong> <a href="input_image.png"><code>input_image.png</code></a> ($736 \times 981$ pixels, 24-bit RGB Landscape Photograph)  </p>
+<p><strong>Date:</strong> October 2026  </p>
+<hr>
+<h2>Executive Summary</h2>
+<p>Image denoising is a cornerstone inverse problem in computer vision and digital image processing. While classical techniques—ranging from linear Box/Gaussian filters to non-linear Median filters and patch-based non-local transforms like <strong>BM3D</strong>—served as the benchmark for decades, the advent of deep learning transformed image restoration.</p>
+<p>This report presents a thorough theoretical, mathematical, and empirical investigation of the <strong>6 foundational modern learned denoising paradigms</strong> taught in Module 4:</p>
+<p>1. <strong>DnCNN (2017):</strong> Supervised Deep Residual CNNs — the first deep architecture to decisively beat BM3D.</p>
+<p>2. <strong>FFDNet (2018):</strong> Fast & Flexible Denoising — controllable noise level map ($\sigma$) with reversible sub-sampling (<code>PixelUnshuffle</code>).</p>
+<p>3. <strong>Noise2Noise (2018):</strong> Unsupervised Restoration — mathematical proof and implementation of training without clean ground truth targets.</p>
+<p>4. <strong>Noise2Void / Self2Self (2019–2020):</strong> Self-Supervised Single-Image Denoising — blind-spot receptive field masking and Monte Carlo dropout ensemble with zero external training data.</p>
+<p>5. <strong>Restormer / SwinIR / NAFNet (2021–2022):</strong> Vision Transformers & Attention — Multi-Dconv Head Transposed Attention (MDTA) across channels and non-linear activation-free architectures.</p>
+<p>6. <strong>Diffusion Denoisers (2021+):</strong> Generative Reverse Langevin Dynamics — overcoming blurry $L_2$ conditional expectations by sampling plausible photorealistic textures.</p>
+<p>Every model was implemented in PyTorch, executed on the exact high-resolution landscape test image, and evaluated using quantitative metrics (<strong>PSNR</strong>, <strong>SSIM</strong>, <strong>MSE</strong>, and <strong>Inference Latency</strong>) alongside high-resolution comparative visual figures.</p>
+<hr>
+<h2>Master Taxonomy & Comparison Table</h2>
+<table>
+<tr><th>#</th><th>Technique</th><th>Year</th><th>Author(s)</th><th>Supervision Paradigm</th><th>Core Mathematical / Architectural Idea</th><th>Landmark Contribution</th></tr>
+<tr><td>**1**</td><td>**DnCNN**</td><td>2017</td><td>Zhang et al.</td><td>Supervised (Clean $x$)</td><td>Residual Learning: $\hat{v} = \mathcal{R}(y)$, $\hat{x} = y - \hat{v}$ with 20 Conv layers + BN</td><td>First neural network to decisively outperform classical BM3D</td></tr>
+<tr><td>**2**</td><td>**FFDNet**</td><td>2018</td><td>Zhang et al.</td><td>Supervised (Controllable)</td><td>Input noise map $\sigma$ + `PixelUnshuffle(2)` quarter-resolution processing</td><td>One single model for all noise levels; $\approx 3.8\times$ faster than DnCNN</td></tr>
+<tr><td>**3**</td><td>**Noise2Noise**</td><td>2018</td><td>Lehtinen et al. (NVIDIA)</td><td>Unsupervised (Noisy Pairs)</td><td>$\mathbb{E}[y_2 \mid y_1] = \mathbb{E}[x \mid y_1]$ given zero-mean noise $\mathbb{E}[v_2 \mid x] = 0$</td><td>Proved neural networks can learn clean restorations with **zero clean images**</td></tr>
+<tr><td>**4**</td><td>**Noise2Void / Self2Self**</td><td>2019–20</td><td>Krull et al. / Quan et al.</td><td>Self-Supervised (Single Photo)</td><td>Blind-Spot masking ($\hat{y}_{i,j} = f(y \setminus \{(i,j)\})$) + Monte Carlo Dropout</td><td>Trains directly on the single corrupted test photo; **zero dataset needed**</td></tr>
+<tr><td>**5**</td><td>**Restormer / NAFNet**</td><td>2021–22</td><td>Zamir et al. / Chen et al.</td><td>Vision Transformers (ViT)</td><td>Channel Transposed Attention ($O(C^2)$) + SimpleGate element-wise multiplication</td><td>Solved $O((HW)^2)$ ViT spatial bottleneck; SOTA benchmark leaders</td></tr>
+<tr><td>**6**</td><td>**Diffusion Denoisers**</td><td>2021+</td><td>Ho et al. / Saharia et al.</td><td>Generative Stochastic Sampling</td><td>Reverse Langevin trajectory sampling from posterior $p(x \mid y)$</td><td>Replaces blurry $L_2$ conditional mean with crisp, photorealistic details</td></tr>
+</table>
+<hr>
+<h2>Master Quantitative Benchmark Results on `input_image.png`</h2>
+<p>All models were evaluated on the provided RGB test photograph ($736 \times 981 \times 3$):</p>
+<table>
+<tr><th>Condition / Model</th><th>Supervision Paradigm</th><th>Noise Setting</th><th>PSNR (dB)</th><th>SSIM</th><th>MSE</th><th>CPU Time</th><th>Empirical Finding on Test Image</th></tr>
+<tr><td>**Ground Truth Reference**</td><td>—</td><td>Clean</td><td>$\infty$</td><td>**1.0000**</td><td>**0.00**</td><td>—</td><td>Pristine target</td></tr>
+<tr><td>**Corrupted: Low Noise**</td><td>—</td><td>AWGN ($\sigma=15$)</td><td>24.91</td><td>0.2786</td><td>209.69</td><td>—</td><td>Visible grain across grass and sky</td></tr>
+<tr><td>**Corrupted: Medium Noise**</td><td>—</td><td>AWGN ($\sigma=25$)</td><td>21.02</td><td>0.1403</td><td>514.33</td><td>—</td><td>Heavy speckle masking edges</td></tr>
+<tr><td>**Corrupted: Heavy Noise**</td><td>—</td><td>AWGN ($\sigma=50$)</td><td>15.95</td><td>0.0492</td><td>1651.52</td><td>—</td><td>Structural degradation</td></tr>
+<tr><td>*Classical Gaussian Blur*</td><td>Unsupervised Filter</td><td>$\sigma=25$</td><td>32.56</td><td>0.7835</td><td>36.05</td><td>**0.002 s**</td><td>Severe blurring; person silhouette destroyed</td></tr>
+<tr><td>*Classical Non-Local Means*</td><td>Patch Filter (NLM)</td><td>$\sigma=25$</td><td>21.61</td><td>0.1794</td><td>448.55</td><td>1.388 s</td><td>Mottled, patchy artifacts across grass</td></tr>
+<tr><td>**1. DnCNN (2017)**</td><td>Supervised (Clean)</td><td>$\sigma=15$<br>$\sigma=25$<br>$\sigma=50$</td><td>**39.73**<br>**36.67**<br>**28.57**</td><td>**0.9499**<br>**0.9290**<br>0.8640</td><td>**6.92**<br>**13.99**<br>**90.33**</td><td>6.465 s</td><td>Outstanding edge and texture recovery; $+15.65\text{ dB}$ boost</td></tr>
+<tr><td>**2. FFDNet (2018)**</td><td>Supervised (Noise Map)</td><td>$\sigma=15$<br>$\sigma=25$<br>$\sigma=50$</td><td>39.67<br>36.36<br>28.15</td><td>0.9491<br>0.9251<br>**0.8645**</td><td>7.02<br>15.02<br>99.50</td><td>**1.723 s**</td><td>**$3.8\times$ faster than DnCNN**; seamless spatial gradient handling</td></tr>
+<tr><td>**3. Noise2Noise (2018)**</td><td>Unsupervised (Noisy Pairs)</td><td>$\sigma=25$</td><td>**31.02**</td><td>**0.8839**</td><td>51.40</td><td>0.450 s</td><td>Reaches within $2.0\text{ dB}$ of supervised model with **NO clean data**</td></tr>
+<tr><td>**4. Noise2Void (2019)**</td><td>Self-Supervised (Single Photo)</td><td>$\sigma=25$</td><td>**28.92**</td><td>**0.8723**</td><td>83.35</td><td>0.520 s</td><td>**$+7.90\text{ dB}$ gain** trained strictly on the single test photo</td></tr>
+<tr><td>**5. Restormer (2022)**</td><td>ViT Channel Attention</td><td>$\sigma=35$</td><td>**30.33**</td><td>**0.7511**</td><td>60.25</td><td>4.720 s</td><td>Transposed channel attention captures global lighting with linear complexity</td></tr>
+<tr><td>**6. Diffusion Denoiser**</td><td>Generative Sampling</td><td>$\sigma=30$</td><td>Perceptual Detail</td><td>Photorealistic</td><td>—</td><td>3.510 s</td><td>Synthesizes sharp individual grass fibers; overcomes waxy $L_2$ blurring</td></tr>
+</table>
+<hr>
+<h2>Detailed Technical Analysis of the 6 Techniques</h2>
+<pre><code>                               THE EVOLUTION OF LEARNED DENOISERS
+  ┌────────────────────────────────────────────────────────────────────────────────────────┐
+  │ 2017: DnCNN            Residual Learning (y - R(y)); Beat classical BM3D              │
+  ├────────────────────────────────────────────────────────────────────────────────────────┤
+  │ 2018: FFDNet           Noise map sigma input + PixelUnshuffle; Unified & 4x faster    │
+  ├────────────────────────────────────────────────────────────────────────────────────────┤
+  │ 2018: Noise2Noise      Trained on noisy pairs (y1 -> y2); Zero clean images needed     │
+  ├────────────────────────────────────────────────────────────────────────────────────────┤
+  │ 2019-20: Noise2Void    Blind-spot masking & Self2Self; Single image, zero dataset     │
+  ├────────────────────────────────────────────────────────────────────────────────────────┤
+  │ 2021-22: Restormer     Multi-Dconv Transposed Attention O(C^2); SOTA Transformers     │
+  ├────────────────────────────────────────────────────────────────────────────────────────┤
+  │ 2021+: Diffusion       Reverse stochastic Langevin sampling; Crisp detail hallucination│
+  └────────────────────────────────────────────────────────────────────────────────────────┘
+</pre>
+<hr>
+<h3>Technique #1: DnCNN (Deep CNN Denoiser)</h3>
+<h4>1. Mathematical Formulation & Residual Learning</h4>
+<p>The standard image degradation model is formulated as:</p>
+<p>$$y = x + v$$</p>
+<p>where $y \in \mathbb{R}^{H \times W \times C}$ is the observed noisy image, $x$ is the latent clean image, and $v \sim \mathcal{N}(0, \sigma^2 \mathbf{I})$ is Additive White Gaussian Noise (AWGN).</p>
+<p>Rather than forcing the network $\mathcal{F}$ to predict the complex clean image directly ($\hat{x} = \mathcal{F}(y)$), <strong>DnCNN utilizes Residual Learning</strong>:</p>
+<p>$$\mathcal{R}(y) \approx v$$</p>
+<p>The clean image is reconstructed via identity subtraction:</p>
+<p>$$\hat{x} = y - \mathcal{R}(y)$$</p>
+<h4>2. Why Residual Learning Outperforms Direct Mapping</h4>
+<p>1. <strong>Statistical Simplicity:</strong> The residual noise $v$ is zero-mean and spatially uncorrelated. Mapping an image to zero-mean Gaussian noise is a substantially easier optimization surface than mapping to high-dimensional photographic structures.</p>
+<p>2. <strong>Gradient Stability:</strong> Stacking 20 convolutional layers with Batch Normalization (BN) creates smooth gradient paths, resolving the vanishing gradient problem and accelerating convergence.</p>
+<h4>3. Architectural Design</h4>
+<p>- <strong>Layer 1:</strong> <code>Conv2d(3, 64, 3, padding=1)</code> + <code>ReLU</code></p>
+<p>- <strong>Layers 2–19:</strong> <code>Conv2d(64, 64, 3, padding=1)</code> + <code>BN</code> + <code>ReLU</code> (effective receptive field: $35 \times 35$)</p>
+<p>- <strong>Layer 20:</strong> <code>Conv2d(64, 3, 3, padding=1)</code> $\longrightarrow$ outputs residual noise map $\hat{v}$</p>
+<p>- <strong>Spatial Preservation:</strong> DnCNN avoids pooling and striding entirely to maintain exact spatial fidelity.</p>
+<h4>4. Empirical Evaluation</h4>
+<p>Evaluated on <code>input_image.png</code> at $\sigma = 25$:</p>
+<p>- Noisy Observation: $21.02\text{ dB}$ PSNR, $0.1403$ SSIM</p>
+<p>- Classical Gaussian Blur: $32.56\text{ dB}$ PSNR, $0.7835$ SSIM (heavy edge degradation)</p>
+<p>- Classical Non-Local Means (NLM): $21.61\text{ dB}$ PSNR, $0.1794$ SSIM (patchy artifacts)</p>
+<p>- <strong>DnCNN Restored:</strong> <strong>$36.67\text{ dB}$ PSNR (+15.65 dB gain!), $0.9290\text{ SSIM}$</strong></p>
+<p><strong>Visual Evidence:</strong></p>
+<p>- Full-Frame Comparison: <a href="outputs/1_dncnn_full_comparison_sigma25.png"><code>outputs/1_dncnn_full_comparison_sigma25.png</code></a></p>
+<p>- Zoomed Crop Detail (Person & Grass): <a href="outputs/2_dncnn_crop_detail_sigma25.png"><code>outputs/2_dncnn_crop_detail_sigma25.png</code></a></p>
+<p>- Multi-Noise Progression ($\sigma \in \{15, 25, 50\}$): <a href="outputs/3_dncnn_multi_sigma_levels.png"><code>outputs/3_dncnn_multi_sigma_levels.png</code></a></p>
+<hr>
+<h3>Technique #2: FFDNet (Fast and Flexible Denoising Network)</h3>
+<h4>1. Overcoming DnCNN's Bottlenecks</h4>
+<p>While DnCNN established the deep learning benchmark, it suffered from two core flaws:</p>
+<p>1. <strong>Rigidity:</strong> Non-blind DnCNN models required separate network weights for every noise level $\sigma$. Blind DnCNN could not be interactively controlled or adapted to spatially varying noise.</p>
+<p>2. <strong>Computational Inefficiency:</strong> Convolving full-resolution feature maps across 20 layers resulted in high latency ($\approx 6.5\text{ s}$ on CPU).</p>
+<h4>2. Key Architectural Innovations</h4>
+<p>1. <strong>Tunable Noise Level Map ($\sigma$) as an Input Channel:</strong></p>
+<p>   FFDNet feeds an explicit noise map $\mathbf{M} \in \mathbb{R}^{1 \times \frac{H}{2} \times \frac{W}{2}}$ along with image features:</p>
+<p>   $$\hat{x} = \mathcal{F}(y, \mathbf{M}; \Theta)$$</p>
+<p>   This enables a single unified network to handle arbitrary uniform noise ($\sigma \in [0, 75]$) and non-uniform spatial noise distributions.</p>
+<p>2. <strong>Reversible Sub-sampling (<code>PixelUnshuffle</code>):</strong></p>
+<p>   Input images are decomposed into 4 downscaled sub-images:</p>
+<p>   $$(C, H, W) \xrightarrow{\text{PixelUnshuffle}(2)} (4C, \tfrac{H}{2}, \tfrac{W}{2})$$</p>
+<p>   For RGB ($C=3$), this yields 12 channels. Adding the 1-channel noise map produces <strong>13 input channels</strong>.</p>
+<p>   - Operating at quarter spatial resolution accelerates forward execution by <strong>$\approx 3.8\times$</strong>.</p>
+<p>   - Concurrently, $3 \times 3$ kernels cover double the spatial area without dilated convolution artifacts.</p>
+<p>3. <strong>Sub-pixel Reconstruction (<code>PixelShuffle</code>):</strong></p>
+<p>   A final <code>PixelShuffle(2)</code> layer maps the 12 output channels back into the clean full-resolution RGB space $(3, H, W)$.</p>
+<h4>3. Empirical Benchmarks on `input_image.png`</h4>
+<p>- <strong>Speedup Benchmark:</strong> At $\sigma = 25$, DnCNN ran in $6.465\text{ s}$ ($36.67\text{ dB}$ PSNR) whereas FFDNet ran in <strong>$1.723\text{ s}$ ($36.36\text{ dB}$ PSNR)</strong> — achieving <strong>$3.8\times$ acceleration</strong> with virtually zero perceptual difference.</p>
+<p>- <strong>Noise Level Controllability Test ($\sigma_{true}=25$):</strong></p>
+<p>  - $\sigma_{in}=10$ (Under-smoothing): $24.97\text{ dB}$ PSNR, $0.2984$ SSIM (retains fine grain, crispest texture)</p>
+<p>  - $\sigma_{in}=25$ (Matched/Optimal): <strong>$36.36\text{ dB}$ PSNR, $0.9251$ SSIM</strong> (noise eliminated, silhouette crisp)</p>
+<p>  - $\sigma_{in}=50$ (Over-smoothing): $34.66\text{ dB}$ PSNR, $0.9046$ SSIM (painterly smoothing)</p>
+<p>- <strong>Spatially Variant Denoising:</strong> Tested with a continuous vertical gradient noise field ($\sigma(y) \in [10, 45]$):</p>
+<p>  - Spatially Noisy Input: $20.01\text{ dB}$</p>
+<p>  - FFDNet Spatially Adapted Output: <strong>$33.27\text{ dB}$ PSNR (+13.26 dB gain!), $0.9078\text{ SSIM}$</strong></p>
+<p><strong>Visual Evidence:</strong></p>
+<p>- Head-to-Head DnCNN vs FFDNet: <a href="outputs/4_ffdnet_vs_dncnn_sigma25.png"><code>outputs/4_ffdnet_vs_dncnn_sigma25.png</code></a></p>
+<p>- Controllability Progression: <a href="outputs/5_ffdnet_controllability_sigma.png"><code>outputs/5_ffdnet_controllability_sigma.png</code></a></p>
+<p>- Spatially Variant Gradient Denoising: <a href="outputs/6_ffdnet_spatially_variant.png"><code>outputs/6_ffdnet_spatially_variant.png</code></a></p>
+<hr>
+<h3>Technique #3: Noise2Noise (Lehtinen et al., ICML 2018)</h3>
+<h4>1. The Zero Clean Data Dilemma</h4>
+<p>Supervised restoration relies on paired datasets $(y_i, x_i)$. In practical domains (low-dose CT scans, fluorescence microscopy, astronomical observation), capturing ground truth clean images $x$ is physically impossible or hazardous.</p>
+<h4>2. The Noise2Noise Mathematical Theorem</h4>
+<p>In supervised learning, optimizing the $L_2$ empirical risk yields the conditional expectation:</p>
+<p>$$\arg\min_\theta \mathbb{E}_{x, y}[\|f_\theta(y) - x\|^2] \implies f^*(y) = \mathbb{E}[x \mid y]$$</p>
+<p>Now suppose we only observe pairs of independent noisy realizations of the same underlying scene $(y_1, y_2)$:</p>
+<p>$$y_1 = x + v_1, \quad y_2 = x + v_2$$</p>
+<p>where noise is zero-mean: $\mathbb{E}[v_2 \mid x] = 0$.</p>
+<p>Minimizing $L_2$ loss between $y_1$ and $y_2$:</p>
+<p>$$\arg\min_\theta \mathbb{E}_{y_1, y_2}[\|f_\theta(y_1) - y_2\|^2] \implies f^*(y_1) = \mathbb{E}[y_2 \mid y_1]$$</p>
+<p>By expanding the expectation:</p>
+<p>$$\mathbb{E}[y_2 \mid y_1] = \mathbb{E}[x + v_2 \mid y_1] = \mathbb{E}[x \mid y_1] + \mathbb{E}[v_2 \mid y_1] = \mathbb{E}[x \mid y_1] + 0 = \mathbb{E}[x \mid y_1]$$</p>
+<p><strong>Conclusion:</strong> The point estimate minimizing $L_2$ loss on noisy targets is <strong>MATHEMATICALLY IDENTICAL</strong> to the estimate obtained with clean targets!</p>
+<h4>3. Empirical Demonstration on `input_image.png`</h4>
+<p>- A U-Net was trained on patches from the test image using clean targets (<strong>Noise2Clean</strong>).</p>
+<p>- An identical U-Net was trained using independent noisy targets $y_2$ (<strong>Noise2Noise</strong>), where targets were fully corrupted.</p>
+<p>- Results on unseen test noise ($\sigma=25$):</p>
+<p>  - Noisy Input $y_1$: $21.01\text{ dB}$ PSNR, $0.1401$ SSIM</p>
+<p>  - Noise2Clean (Supervised): $33.06\text{ dB}$ PSNR, $0.8937$ SSIM</p>
+<p>  - <strong>Noise2Noise (Unsupervised Target $y_2$):</strong> <strong>$31.02\text{ dB}$ PSNR, $0.8839$ SSIM</strong></p>
+<p>  - <strong>Difference:</strong> Only $2.04\text{ dB}$ despite <strong>never seeing a single clean pixel during training</strong>!</p>
+<p><strong>Visual Evidence:</strong></p>
+<p>- Noise2Noise Overview: <a href="outputs/7_noise2noise_comparison.png"><code>outputs/7_noise2noise_comparison.png</code></a></p>
+<p>- Noise2Noise Detailed Crop: <a href="outputs/8_noise2noise_crop_detail.png"><code>outputs/8_noise2noise_crop_detail.png</code></a></p>
+<hr>
+<h3>Technique #4: Noise2Void & Self2Self (Single-Image Self-Supervised Denoising)</h3>
+<h4>1. Motivation: When Even Pairs Do Not Exist</h4>
+<p>Noise2Noise requires two independent observations of the exact same static scene. In dynamic imaging or consumer photography, only <strong>one single corrupted photograph $y$</strong> is available.</p>
+<h4>2. The Identity Mapping Trap</h4>
+<p>If a neural network is trained directly on a single image via $\min_\theta \|f_\theta(y) - y\|^2$, a deep CNN will learn the identity mapping $f(y) = y$, perfectly reproducing the noise.</p>
+<h4>3. The Noise2Void Blind-Spot Mechanism</h4>
+<p>Krull et al. (CVPR 2019) resolved this by designing a <strong>blind-spot receptive field</strong>:</p>
+<p>- A small fraction of pixels $\Omega$ (e.g. $2\%–3\%$) is randomly sampled.</p>
+<p>- Each selected pixel $(i, j)$ is replaced with a randomly chosen neighbor pixel:</p>
+<p>  $$y^{\text{blind}}_{i, j} = y_{i + \delta_i, j + \delta_j}$$</p>
+<p>- The loss function is evaluated <strong>ONLY at the masked blind-spot locations</strong>:</p>
+<p>  $$\mathcal{L}_{N2V} = \sum_{(i,j) \in \Omega} \|f_\theta(y^{\text{blind}})_{i,j} - y_{i,j}\|^2$$</p>
+<p><strong>Why It Works:</strong></p>
+<p>Because noise is pixel-wise independent ($\mathbb{E}[v_{i,j} \cdot v_{k,l}] = 0$ for $(i,j) \neq (k,l)$), neighboring context pixels contain information about the underlying signal $x_{i,j}$, but <strong>zero information about the center noise $v_{i,j}$</strong>. The network cannot copy the noise and is forced to predict the conditional expectation $\mathbb{E}[x_{i,j} \mid \text{context}]$.</p>
+<h4>4. Self2Self Monte Carlo Dropout Ensemble</h4>
+<p>Quan et al. (CVPR 2020) complemented this by training with Bernoulli dropout and generating $N$ test predictions with varied dropout masks, averaging them to form the final denoised reconstruction:</p>
+<p>$$\hat{x} = \frac{1}{N} \sum_{n=1}^N f(y; \mathbf{z}_n)$$</p>
+<h4>5. Empirical Results on `input_image.png`</h4>
+<p>- Trained solely on patches extracted from the single noisy image ($\sigma=25$) in $11.62\text{ s}$ with <strong>ZERO external training dataset</strong>:</p>
+<p>  - Noisy Input: $21.02\text{ dB}$ PSNR, $0.1403$ SSIM</p>
+<p>  - <strong>Noise2Void / Self2Self Output:</strong> <strong>$28.92\text{ dB}$ PSNR (+7.90 dB gain!), $0.8723$ SSIM</strong></p>
+<p><strong>Visual Evidence:</strong></p>
+<p>- Single-Image Denoising: <a href="outputs/9_noise2void_self2self.png"><code>outputs/9_noise2void_self2self.png</code></a></p>
+<p>- Blind-Spot Crop Detail: <a href="outputs/10_noise2void_crop.png"><code>outputs/10_noise2void_crop.png</code></a></p>
+<hr>
+<h3>Technique #5: Restormer / SwinIR / NAFNet (Vision Transformers & Attention)</h3>
+<h4>1. The Vision Transformer Bottleneck in Image Restoration</h4>
+<p>Standard Vision Transformers (ViT) compute self-attention across spatial tokens:</p>
+<p>$$\text{Attention}(Q, K, V) = \text{Softmax}\left(\frac{QK^T}{\sqrt{d}}\right)V$$</p>
+<p>For an image with $H \times W$ tokens (e.g. $736 \times 981 \approx 7.2 \times 10^5$ tokens), the spatial attention matrix is $(HW) \times (HW) \approx 5.2 \times 10^{11}$ elements, demanding hundreds of gigabytes of VRAM and making standard ViTs unusable for high-resolution images.</p>
+<h4>2. Restormer: Multi-Dconv Head Transposed Attention (MDTA)</h4>
+<p>Zamir et al. (CVPR 2022) inverted the attention mechanism: instead of computing attention across spatial tokens, <strong>Restormer computes attention across channels</strong>:</p>
+<p>$$\hat{Q} \in \mathbb{R}^{HW \times C}, \quad \hat{K} \in \mathbb{R}^{HW \times C}, \quad \hat{V} \in \mathbb{R}^{HW \times C}$$</p>
+<p>$$\text{Attention}(\hat{Q}, \hat{K}, \hat{V}) = \hat{V} \cdot \text{Softmax}\left(\frac{\hat{K}^T \hat{Q}}{\alpha}\right)$$</p>
+<p>- The attention map is now of shape <strong>$C \times C$</strong> (e.g. $48 \times 48$), which is <strong>independent of image spatial resolution</strong>!</p>
+<p>- Computational complexity drops from quadratic $O((HW)^2)$ to linear <strong>$O(HW \cdot C^2)$</strong>, allowing ViTs to process multi-megapixel images seamlessly.</p>
+<h4>3. NAFNet: Nonlinear Activation Free Architecture</h4>
+<p>Chen et al. (ECCV 2022) questioned whether complex nonlinear activations (GELU/ReLU) and Softmax are necessary. They introduced:</p>
+<p>- <strong>SimpleGate:</strong> Splits features into two channel chunks and computes an element-wise product:</p>
+<p>  $$\text{SimpleGate}(X, Y) = X \odot Y$$</p>
+<p>- <strong>Simplified Channel Attention (SCA):</strong></p>
+<p>  $$\text{SCA}(X) = X \odot \mathcal{W}(\text{GlobalAvgPool}(X))$$</p>
+<p>NAFNet achieved state-of-the-art results on SIDD and GoPro benchmarks while operating faster than standard CNNs.</p>
+<h4>4. Empirical Evaluation on `input_image.png`</h4>
+<p>Tested under severe noise ($\sigma = 35$):</p>
+<p>- Noisy Input: $18.56\text{ dB}$ PSNR, $0.0859$ SSIM</p>
+<p>- <strong>Restormer Transposed Attention:</strong> <strong>$30.33\text{ dB}$ PSNR (+11.77 dB boost!), $0.7511$ SSIM</strong></p>
+<p><strong>Visual Evidence:</strong></p>
+<p>- Restormer Attention Output: <a href="outputs/11_restormer_nafnet_attention.png"><code>outputs/11_restormer_nafnet_attention.png</code></a></p>
+<p>- Attention Crop Detail: <a href="outputs/12_restormer_crop_detail.png"><code>outputs/12_restormer_crop_detail.png</code></a></p>
+<hr>
+<h3>Technique #6: Diffusion Denoisers (Stochastic Reverse Langevin Sampling)</h3>
+<h4>1. The Fundamental Limitation of $L_2$ Regression</h4>
+<p>All standard supervised denoisers (DnCNN, FFDNet, Restormer) minimize Mean Squared Error ($L_2$ loss):</p>
+<p>$$\hat{x}_{L_2} = \arg\min_{\hat{x}} \mathbb{E}[\|x - \hat{x}\|^2 \mid y] = \mathbb{E}[x \mid y] = \int x \, p(x \mid y) \, dx$$</p>
+<p>The mathematical output is the <strong>conditional mean (expectation)</strong>. Under heavy noise, fine details (individual grass blades, hair strands, fabric textures) are destroyed. Because multiple plausible configurations could have produced the noisy patch, averaging all possibilities results in <strong>blurry, waxy, over-smoothed patches</strong>.</p>
+<h4>2. The Generative Stochastic Sampling Solution</h4>
+<p>Diffusion models (Ho et al., NeurIPS 2020; Saharia et al., 2021) do not compute the conditional mean. Instead, they <strong>sample from the posterior distribution</strong>:</p>
+<p>$$\hat{x} \sim p(x \mid y)$$</p>
+<p>Using reverse Langevin stochastic differential equations:</p>
+<p>$$x_{t-1} = \frac{1}{\sqrt{\alpha_t}} \left( x_t - \frac{\beta_t}{\sqrt{1 - \bar{\alpha}_t}} \boldsymbol{\epsilon}_\theta(x_t, t, y) \right) + \sigma_t \mathbf{z}, \quad \mathbf{z} \sim \mathcal{N}(0, \mathbf{I})$$</p>
+<p><strong>Why Diffusion Invent Details:</strong></p>
+<p>Rather than averaging uncertainty, each reverse sampling step walks down the gradient of the data distribution, choosing <strong>one sharp, plausible, consistent reality</strong>. Even when true high-frequency information is lost, diffusion models synthesize photorealistic textures rather than blurring them out.</p>
+<h4>3. Empirical Reverse Trajectory on `input_image.png`</h4>
+<p>- A conditional diffusion score model was trained and executed over a 100-step reverse Langevin trajectory starting from pure Gaussian noise.</p>
+<p>- Visual inspection confirms that while regression models produce a flat, waxy field, the diffusion denoiser synthesizes distinct, photorealistic grass textures.</p>
+<p><strong>Visual Evidence:</strong></p>
+<p>- 5-Step Reverse Diffusion Trajectory ($t=100 \to 0$): <a href="outputs/13_diffusion_reverse_trajectory.png"><code>outputs/13_diffusion_reverse_trajectory.png</code></a></p>
+<p>- Regression ($L_2$ Average) vs. Diffusion (Plausible Sample): <a href="outputs/14_diffusion_vs_regression.png"><code>outputs/14_diffusion_vs_regression.png</code></a></p>
+<hr>
+<h2>Comparative Synthesis & Real-World Selection Matrix</h2>
+<pre><code>       HIGH
+        ▲                                     Restormer / SwinIR
+        │                                        (SOTA Quality)
+        │
+        │                  FFDNet
+        │             (Fast & Controllable)
+RESTORE │
+QUALITY │   DnCNN
+(PSNR)  │ (Baseline SOTA)
+        │                                 Noise2Noise
+        │                               (No Clean Targets)
+        │
+        │                                                   Noise2Void
+        │                                             (Single Image, Zero Data)
+        │
+        └──────────────────────────────────────────────────────────────────────►
+         LOW                      DATA REQUIREMENTS                    HIGH
+</pre>
+<h3>Engineering Decision Matrix</h3>
+<table>
+<tr><th>Domain / Use Case</th><th>Recommended Denoiser</th><th>Technical Justification</th></tr>
+<tr><td>**Mobile Smartphone Photography**</td><td>**FFDNet**</td><td>Low latency ($<2\text{ ms}$ on mobile NPU), noise level $\sigma$ dynamically read from camera ISO/exposure EXIF tags.</td></tr>
+<tr><td>**Medical Imaging (MRI / Low-Dose CT)**</td><td>**Noise2Noise**</td><td>Clean ground truth scans cannot be acquired due to radiation limits, but multiple noisy scans of the same anatomy are available.</td></tr>
+<tr><td>**Electron Microscopy & Astronomy**</td><td>**Noise2Void / Self2Self**</td><td>Dynamic specimens and unique celestial events prevent capturing pairs or datasets; trains directly on the single corrupted frame.</td></tr>
+<tr><td>**Commercial Studio Restoration / Benchmarks**</td><td>**Restormer / NAFNet**</td><td>Highest PSNR/SSIM reconstruction; channel attention captures global lighting without spatial tiling artifacts.</td></tr>
+<tr><td>**Cinematic Remastering & Creative Upscaling**</td><td>**Diffusion Denoisers**</td><td>Prioritizes perceptual realism and texture synthesis over pixel-exact MSE alignment; eliminates waxy smoothing.</td></tr>
+</table>
+<hr>
+<h2>Verification & Code Reproduction</h2>
+<p>All 6 techniques are fully implemented as modular, standalone scripts inside <a href="file:///c:/Users/HP/Desktop/S7CS%20(senior1"><code>denoiser/</code></a>/computer.vision/ImgEnhancementAssignment/denoiser):</p>
+<pre><code># 1. DnCNN (Residual CNN, 2017)
+python denoiser/run_dncnn.py
+
+# 2. FFDNet (Controllable Noise Map & PixelUnshuffle, 2018)
+python denoiser/run_ffdnet.py
+
+# 3. Noise2Noise (Unsupervised Pairs, 2018)
+python denoiser/run_noise2noise.py
+
+# 4. Noise2Void / Self2Self (Single Image Blind-Spot, 2019)
+python denoiser/run_noise2void.py
+
+# 5. Restormer / NAFNet (Transposed Channel Attention, 2022)
+python denoiser/run_restormer.py
+
+# 6. Diffusion Denoisers (Reverse Stochastic Sampling, 2021)
+python denoiser/run_diffusion.py
+</pre>
+<hr>
+<h2>References</h2>
+<p>1. <strong>DnCNN:</strong> Zhang, K., Zuo, W., Chen, Y., Meng, D., & Zhang, L. (2017). *Beyond a Gaussian Denoiser: Residual Learning of Deep CNN for Image Denoising*. IEEE Transactions on Image Processing, 26(7), 3142-3155.</p>
+<p>2. <strong>FFDNet:</strong> Zhang, K., Zuo, W., & Zhang, L. (2018). *FFDNet: Toward a Fast and Flexible Solution for CNN based Image Denoising*. IEEE Transactions on Image Processing, 27(9), 4608-4622.</p>
+<p>3. <strong>Noise2Noise:</strong> Lehtinen, J., Munkberg, J., Hasselgren, J., Laine, S., Karras, T., Aittala, M., & Aila, T. (2018). *Noise2Noise: Learning Image Restoration without Clean Data*. International Conference on Machine Learning (ICML).</p>
+<p>4. <strong>Noise2Void:</strong> Krull, A., Buchholz, T. O., & Jug, F. (2019). *Noise2Void - Learning Denoising From Single Noisy Images*. IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR).</p>
+<p>5. <strong>Self2Self:</strong> Quan, Y., Chen, M., Pang, T., & Ji, H. (2020). *Self2Self With Dropout: Learning Self-Supervised Denoising From Single Image*. CVPR.</p>
+<p>6. <strong>Restormer:</strong> Zamir, S. W., Arora, A., Khan, S., Hayat, M., Khan, F. S., & Yang, M. H. (2022). *Restormer: Efficient Transformer for High-Resolution Image Restoration*. CVPR.</p>
+<p>7. <strong>NAFNet:</strong> Chen, L., Chu, X., Zhang, X., & Sun, J. (2022). *Simple Baselines for Image Restoration*. European Conference on Computer Vision (ECCV).</p>
+<p>8. <strong>Diffusion Denoisers:</strong> Ho, J., Jain, A., & Abbeel, P. (2020). *Denoising Diffusion Probabilistic Models*. Advances in Neural Information Processing Systems (NeurIPS).</p>
+
+</div>
+</body>
+</html>
